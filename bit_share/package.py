@@ -1,21 +1,23 @@
 from functools import cached_property
 
-from .packager import Packager
+from typing import TYPE_CHECKING
 import hashlib
 import json
 import os
 
+if TYPE_CHECKING:
+    from .packager import Packager
+
 class Package:
     name: str
     filelist: list[tuple[str, int]]
-    header_hash: str
 
     def __init__(self, name: str, filelist: list[tuple[str, int]]):
         self.name = name
         self.filelist = filelist
 
     @classmethod
-    def from_packager(cls, packager: Packager) -> "Package":
+    def from_packager(cls, packager: 'Packager') -> "Package":
         return cls(
             name=packager.name,
             filelist=sorted([(path.as_posix(), size) for path, size in packager.filelist], key=lambda x: x[0])
