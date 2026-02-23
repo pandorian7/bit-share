@@ -21,6 +21,8 @@ def main():
     parser.add_argument('-v', '--version', action='version', version=f"%(prog)s {VERSION}", help="show program's version number and exit")
     
     subparsers = parser.add_subparsers(dest='command', title="available commands") # type: ignore
+
+    subparsers.add_parser('create', help="create a bit-share package from a file or directory")
     
     args = parser.parse_args()
 
