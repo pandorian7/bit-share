@@ -1,6 +1,6 @@
 import argparse
 
-from . import NAME, DESCRIPTION
+from . import NAME, VERSION, DESCRIPTION
 from .daemon import Daemon
 
 def __process_args(parser: argparse.ArgumentParser, args: argparse.Namespace):
@@ -18,6 +18,7 @@ def main():
     parser = argparse.ArgumentParser(prog=NAME, description=DESCRIPTION)
     
     parser.add_argument('-D', '--daemon', action='store_true', help=f"start {NAME} daemon")
+    parser.add_argument('-v', '--version', action='version', version=f"%(prog)s {VERSION}", help="show program's version number and exit")
     
     subparsers = parser.add_subparsers(dest='command', title="available commands") # type: ignore
     
