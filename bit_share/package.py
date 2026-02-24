@@ -25,6 +25,10 @@ class Package:
     
     @classmethod
     def from_file(cls, path: str | os.PathLike[str]) -> "Package":
+
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"package file '{path}' does not exist")
+
         with open(path, "r") as file:
             data = json.load(file)
             ret = cls(
