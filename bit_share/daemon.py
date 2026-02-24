@@ -6,6 +6,10 @@ import threading
 from abc import ABC, abstractmethod
 from types import FrameType
 from typing import Callable
+import psutil
+
+from bit_share.api import API
+from bit_share.peerbox import PeerBox
 
 
 from .constants import LOCAL_DAEMON_PORT, REMOTE_DAEMON_PORT, REMOTE_TRANSFER_PORT
@@ -15,12 +19,28 @@ from .packets import Packet
 from .packets import *
 
 
+def is_local_ip(ip: str) -> bool:
+    """Check if the given IP is a local machine address."""
+    local_ips = {"127.0.0.1"}
+
+    try:
+        for addresses in psutil.net_if_addrs().values():
+            for address in addresses:
+                if address.family == socket.AF_INET:
+                    local_ips.add(address.address)
+    except Exception:
+        pass
+
+    return ip in local_ips
+
+
 class DaemonBase(ABC):
     """Base class providing generic server infrastructure."""
     
     def __init__(self):
         self._stop_event = threading.Event()
         self.seed_box = SeedBox()
+        self.peer_box = PeerBox()
 
     @abstractmethod
     def _remote_daemon_server(self) -> None:
@@ -135,7 +155,28 @@ class Daemon(DaemonBase):
         print(f"Remote daemon server (UDP) listening on 0.0.0.0:{REMOTE_DAEMON_PORT}")
         
         def handler(packet: Packet, addr: tuple[str, int]) -> None:
-            print(f"[remote-daemon/UDP] Received from {addr[0]}:{addr[1]} | type={packet.type.value} | size={len(packet.data)} bytes")
+            if is_local_ip(addr[0]):
+                return
+            
+            if isinstance(packet, DiscoveryRequestPacket):
+                print(f"[REMOTE/D-REQ] hash={packet.hash} | from={addr[0]}")
+
+                seed = self.seed_box.lookup(packet.hash)
+
+                if not seed:
+                    print(f"[REMOTE/LOG] found=no | hash={packet.hash}")
+                    return
+                
+                print(f"[REMOTE/LOG] found=yes | hash={packet.hash} | name={seed.package.name}")
+
+                resend_addr = (addr[0], REMOTE_DAEMON_PORT)
+                API.discover_response(seed, resend_addr)
+            
+            elif isinstance(packet, DiscoveryResponsePacket):
+                print(f"[REMOTE/D-RES] hash={packet.hash} from={addr[0]}")
+                self.peer_box.add(packet.hash, addr[0])
+
+
 
         self._run_udp_server(REMOTE_DAEMON_PORT, handler)
 

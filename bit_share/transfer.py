@@ -14,7 +14,6 @@ def send_packet(
 ) -> int:
     
     """Send a framed packet through a socket. Destination required for UDP."""
-
     # Extract string value from packet type enum and ensure it's exactly 4 bytes
     type_str = packet.type.value
     type_bytes = type_str.encode('utf-8')[:4].ljust(4, b'\x00')
@@ -22,8 +21,7 @@ def send_packet(
     payload = type_bytes + packet.data
     size = len(payload)
     
-    frame = struct.pack('!I', size) + payload
-    
+    frame = struct.pack('!I', size) + payload    
     sock_type = sock.type
     if sock_type == socket.SOCK_DGRAM:
         if destination is None:
@@ -89,6 +87,8 @@ def next_packet(
         try:
             packet, addr = recv_packet(sock)
             yield packet, addr
+        except socket.timeout:
+            continue
         except (ConnectionError, OSError):
             break
 

@@ -6,12 +6,16 @@ from .types import PacketType
 from .package import Package
 from .seed import Seed
 
-__all__ = ["SeedPacket"]
+__all__ = ["SeedPacket", "DiscoveryRequestPacket", "DiscoveryResponsePacket"]
 
 
 def resolve_packet_subclass(packet_type: PacketType) -> type["Packet"]:
     if packet_type == PacketType.SEED:
         return SeedPacket
+    if packet_type == PacketType.DISCOVERY_REQUEST:
+        return DiscoveryRequestPacket
+    if packet_type == PacketType.DISCOVERY_RESPONSE:
+        return DiscoveryResponsePacket
     return Packet
 
 
@@ -52,3 +56,28 @@ class SeedPacket(Packet):
             raise ValueError("Invalid seed packet payload")
         return payload
     
+
+class DiscoveryRequestPacket(Packet):
+    def __init__(self, data: bytes):
+        super().__init__(PacketType.DISCOVERY_REQUEST, data)
+
+    
+    @classmethod
+    def from_hash(cls, package_hash: str) -> "DiscoveryRequestPacket":
+        return cls(package_hash.encode())
+    
+    @property
+    def hash(self) -> str:
+        return self.data.decode()
+    
+class DiscoveryResponsePacket(Packet):
+    def __init__(self, data: bytes):
+        super().__init__(PacketType.DISCOVERY_RESPONSE, data)
+
+    @classmethod
+    def from_seed(cls, seed: Seed) -> "DiscoveryResponsePacket":
+        return cls(seed.package.hash.encode())
+    
+    @property
+    def hash(self) -> str:
+        return self.data.decode()
