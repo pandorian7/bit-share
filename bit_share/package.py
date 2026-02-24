@@ -2,6 +2,7 @@ from functools import cached_property
 
 from typing import TYPE_CHECKING
 import hashlib
+import pickle
 import json
 import os
 
@@ -53,5 +54,16 @@ class Package:
                 "filelist": self.filelist,
                 "hash": self.hash
             }, file)
+
+    def encode(self) -> bytes:
+        return pickle.dumps(self)
+
+    @classmethod
+    def from_binary(cls, data: bytes) -> "Package":
+        payload = pickle.loads(data)
+        if not isinstance(payload, cls):
+            raise ValueError("Invalid binary package data")
+
+        return payload
         
 

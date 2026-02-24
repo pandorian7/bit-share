@@ -3,19 +3,67 @@ from __future__ import annotations
 import signal
 import socket
 import threading
+from abc import ABC, abstractmethod
 from types import FrameType
 from typing import Callable
 
+
 from .constants import LOCAL_DAEMON_PORT, REMOTE_DAEMON_PORT, REMOTE_TRANSFER_PORT
 from .transfer import next_packet
+from .seedbox import SeedBox
 from .packets import Packet
+from .packets import *
 
 
-class DaemonBase:
+class DaemonBase(ABC):
     """Base class providing generic server infrastructure."""
     
     def __init__(self):
         self._stop_event = threading.Event()
+        self.seed_box = SeedBox()
+
+    @abstractmethod
+    def _remote_daemon_server(self) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def _remote_transfer_server(self) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def _local_daemon_server(self) -> None:
+        raise NotImplementedError
+
+    def start(self) -> None:
+        self._stop_event.clear()
+
+        threads = [
+            threading.Thread(target=self._remote_daemon_server, name="remote-daemon-server"),
+            threading.Thread(target=self._remote_transfer_server, name="remote-transfer-server"),
+            threading.Thread(target=self._local_daemon_server, name="local-daemon-server"),
+        ]
+
+        def _handle_sigint(_signum: int, _frame: FrameType | None) -> None:
+            print("Server is shutting down...")
+            self.stop()
+
+        previous_sigint_handler = signal.getsignal(signal.SIGINT)
+        signal.signal(signal.SIGINT, _handle_sigint)
+
+        try:
+            for thread in threads:
+                thread.start()
+
+            while any(thread.is_alive() for thread in threads):
+                for thread in threads:
+                    thread.join(timeout=0.2)
+                if self._stop_event.is_set():
+                    break
+        finally:
+            self.stop()
+            for thread in threads:
+                thread.join(timeout=1.0)
+            signal.signal(signal.SIGINT, previous_sigint_handler)
 
     def stop(self) -> None:
         """Signal all servers to stop."""
@@ -103,37 +151,8 @@ class Daemon(DaemonBase):
         print(f"Local daemon server (TCP) listening on 127.0.0.1:{LOCAL_DAEMON_PORT}")
         
         def handler(packet: Packet, addr: tuple[str, int]) -> None:
-            print(f"[local-daemon/TCP] Received from {addr[0]}:{addr[1]} | type={packet.type.value} | size={len(packet.data)} bytes")
+            if isinstance(packet, SeedPacket):
+                print(f"[LOCAL/SEED] hash={packet.seed.package.hash} | path={packet.seed.path}")
+                self.seed_box.add(packet.seed)
 
         self._run_tcp_server("127.0.0.1", LOCAL_DAEMON_PORT, handler)
-
-    def start(self):
-        self._stop_event.clear()
-
-        threads = [
-            threading.Thread(target=self._remote_daemon_server, name="remote-daemon-server"),
-            threading.Thread(target=self._remote_transfer_server, name="remote-transfer-server"),
-            threading.Thread(target=self._local_daemon_server, name="local-daemon-server"),
-        ]
-
-        def _handle_sigint(_signum: int, _frame: FrameType | None) -> None:
-            print("Server is shutting down...")
-            self.stop()
-
-        previous_sigint_handler = signal.getsignal(signal.SIGINT)
-        signal.signal(signal.SIGINT, _handle_sigint)
-
-        try:
-            for thread in threads:
-                thread.start()
-
-            while any(thread.is_alive() for thread in threads):
-                for thread in threads:
-                    thread.join(timeout=0.2)
-                if self._stop_event.is_set():
-                    break
-        finally:
-            self.stop()
-            for thread in threads:
-                thread.join(timeout=1.0)
-            signal.signal(signal.SIGINT, previous_sigint_handler)

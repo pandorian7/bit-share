@@ -1,7 +1,11 @@
 import argparse
-from . import NAME, VERSION, DESCRIPTION, PACKAGE_EXT
+from pathlib import Path
+from . import NAME, VERSION, DESCRIPTION
+from .constants import PACKAGE_EXT
 from .daemon import Daemon
 from .packager import Packager
+from .package import Package
+from .api import API
 
 import os
 
@@ -32,9 +36,18 @@ def __process_args(parser: argparse.ArgumentParser, args: argparse.Namespace):
 
         print(f"Package was written to '{output}'")
 
-    else:
-        parser.print_help()
+    if args.command == "seed":
+        assert isinstance(args.package, Path), "package argument must be a Path object"
+        assert isinstance(args.path, Path), "path argument must be a Path object"
 
+        try: 
+            package = Package.from_file(args.package)
+        except FileNotFoundError:
+            print(f"Error: package file '{args.package}' not found")
+            return
+
+        print(f"Seeding package '{package.name}' with {len(package.filelist)} files...")
+        API.seed(package, args.path)
 def main():
     parser = argparse.ArgumentParser(prog=NAME, description=DESCRIPTION)
     
@@ -44,10 +57,13 @@ def main():
     subparsers = parser.add_subparsers(dest='command', title="available commands") # type: ignore
 
     create_parser = subparsers.add_parser('create', help="create a bit-share package from a file or directory")
-    
     create_parser.add_argument('-s', '--source', type=str, help="path to the source file or directory (defaults to current directory)")
     create_parser.add_argument('-n', '--name', type=str, help="name of the package (defaults to source name)")
     create_parser.add_argument('-o', '--output', type=str, help="path to save the package file (defaults to <name>.json)")  
+
+    seed_parser = subparsers.add_parser('seed', help="seed a package to the network")
+    seed_parser.add_argument('package', type=Path, help="path to the package file to seed")
+    seed_parser.add_argument('path', type=Path, help="local path to seed for this package")
     
     args = parser.parse_args()
 
