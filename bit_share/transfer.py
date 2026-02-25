@@ -1,16 +1,76 @@
 import socket
 import struct
 import threading
-from typing import Optional, Generator
+import ipaddress
+import psutil
+from typing import Optional, Generator, cast
+from collections.abc import Iterable
 
 from .types import PacketType
 from .packets import Packet
 
 
+def broadcast_destinations(port: int) -> list[tuple[str, int]]:
+    destinations: set[tuple[str, int]] = set()
+
+    for addresses in psutil.net_if_addrs().values():
+        primary: tuple[str, int] | None = None
+        fallback: tuple[str, int] | None = None
+
+        for address in addresses:
+            if address.family != socket.AF_INET:
+                continue
+            if not address.address or not address.netmask:
+                continue
+            if address.address.startswith("127."):
+                continue
+
+            try:
+                iface = ipaddress.IPv4Interface(f"{address.address}/{address.netmask}")
+            except ipaddress.AddressValueError:
+                continue
+
+            candidate = (str(iface.network.broadcast_address), port)
+            if not iface.ip.is_link_local:
+                primary = candidate
+                break
+
+            if fallback is None:
+                fallback = candidate
+
+        selected = primary or fallback
+        if selected is not None:
+            destinations.add(selected)
+
+    if not destinations:
+        destinations.add(("255.255.255.255", port))
+    return sorted(destinations)
+
+
+def _is_udp_destination(value: object) -> bool:
+    if not isinstance(value, tuple):
+        return False
+
+    value_tuple = cast(tuple[object, ...], value)
+    if len(value_tuple) != 2:
+        return False
+
+    host = value_tuple[0]
+    port = value_tuple[1]
+
+    return isinstance(host, str) and isinstance(port, int)
+
+
+def _as_udp_destination(value: object) -> tuple[str, int]:
+    if not _is_udp_destination(value):
+        raise ValueError("Invalid UDP destination")
+    return cast(tuple[str, int], value)
+
+
 def send_packet(
     sock: socket.socket,
     packet: Packet,
-    destination: Optional[tuple[str, int]] = None
+    destination: Optional[tuple[str, int] | Iterable[tuple[str, int]]] = None
 ) -> int:
     
     """Send a framed packet through a socket. Destination required for UDP."""
@@ -26,7 +86,22 @@ def send_packet(
     if sock_type == socket.SOCK_DGRAM:
         if destination is None:
             raise ValueError("destination is required for UDP sockets")
-        return sock.sendto(frame, destination)
+
+        if _is_udp_destination(destination):
+            return sock.sendto(frame, _as_udp_destination(destination))
+
+        total_sent = 0
+        seen: set[tuple[str, int]] = set()
+        for candidate in destination:
+            target = _as_udp_destination(candidate)
+            if target in seen:
+                continue
+            seen.add(target)
+            try:
+                total_sent += sock.sendto(frame, target)
+            except OSError:
+                continue
+        return total_sent
     elif sock_type == socket.SOCK_STREAM:
         return sock.send(frame)
     else:
