@@ -1,0 +1,27 @@
+
+services:
+  client1:
+    image: python:3.12-slim
+    container_name: client1
+    hostname: client1
+    volumes:
+      - ../:/source
+    working_dir: /data
+    command: ["sh", "-c", "pip install -e /source && sleep infinity"]
+    networks:
+      - client-bridge
+
+  client2:
+    image: python:3.12-slim
+    container_name: client2
+    hostname: client2
+    volumes:
+      - ../:/source
+    working_dir: /data
+    command: ["sh", "-c", "pip install -e /source && sleep infinity"]
+    networks:
+      - client-bridge
+
+networks:
+  client-bridge:
+    driver: bridge
