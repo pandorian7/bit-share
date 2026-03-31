@@ -1,5 +1,6 @@
 from functools import cached_property
 from pathlib import Path
+from hashlib import md5
 import math
 import os
 
@@ -54,7 +55,7 @@ class Packager:
         """
         Generate a list of all files in the source directory with their relative paths and sizes.
         Returns:
-            list: A list of tuples containing (relative_file_path, file_size) for each file
+            list: A list of tuples containing (relative_file_path, file_size, file_hash) for each file
                   found recursively in the source directory. The relative path is relative to
                   the parent directory of the source path, and file_size is in bytes.
         """
@@ -63,7 +64,12 @@ class Packager:
             return [(self.source, self.source.stat().st_size)]
 
         return [
-            (file.relative_to(self.source.parent), file.stat().st_size) for file in self.source.rglob("**/*") if file.is_file()
+            (
+                file.relative_to(self.source.parent), 
+                file.stat().st_size,
+                md5(file.read_bytes()).hexdigest()
+            ) 
+            for file in self.source.rglob("**/*") if file.is_file()
         ]
     
     def size(self) -> int:
@@ -73,7 +79,7 @@ class Packager:
             int: The total size in bytes of all files contained in the source directory.
         """
 
-        return sum(size for _, size in self.filelist)
+        return sum(size for _, size, _ in self.filelist)
     
     def piece_count(self) -> int:
         """

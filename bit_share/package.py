@@ -11,9 +11,9 @@ if TYPE_CHECKING:
 
 class Package:
     name: str
-    filelist: list[tuple[str, int]]
+    filelist: list[tuple[str, int, str]]
 
-    def __init__(self, name: str, filelist: list[tuple[str, int]]):
+    def __init__(self, name: str, filelist: list[tuple[str, int, str]]):
         self.name = name
         self.filelist = filelist
 
@@ -21,7 +21,7 @@ class Package:
     def from_packager(cls, packager: 'Packager') -> "Package":
         return cls(
             name=packager.name,
-            filelist=sorted([(path.as_posix(), size) for path, size in packager.filelist], key=lambda x: x[0])
+            filelist=sorted([(path.as_posix(), size, hash) for path, size, hash in packager.filelist], key=lambda x: x[0])
         )
     
     @classmethod
@@ -44,7 +44,7 @@ class Package:
     
     @cached_property
     def hash(self) -> str:
-        content = f"{self.name}:{''.join(f'{path}:{size}' for path, size in self.filelist)}"
+        content = f"{self.name}:{''.join(f'{path}:{size}:{hash}' for path, size, hash in self.filelist)}"
         return hashlib.sha256(content.encode()).hexdigest()
     
     def save(self, path: str | os.PathLike[str]) -> None:
@@ -52,7 +52,7 @@ class Package:
             json.dump({
                 "name": self.name,
                 "filelist": self.filelist,
-                "hash": self.hash
+                "hash": self.hash,
             }, file)
 
     def encode(self) -> bytes:
