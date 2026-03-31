@@ -42,6 +42,12 @@
 						"overrideName": true,
 						"path": "docker",
 						"args": [ "exec", "-it", "client2", "/bin/bash" ]
+					},
+
+					"client3": {
+						"overrideName": true,
+						"path": "docker",
+						"args": [ "exec", "-it", "client3", "/bin/bash" ]
 					}
 				}
 			}
