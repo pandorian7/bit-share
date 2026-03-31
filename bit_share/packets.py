@@ -120,7 +120,8 @@ class PackageResponsePacket(Packet):
 
 class DownloadRequestPacket(Packet):
     def __init__(self, hash: str, destination: str | os.PathLike[str]):
-        data = f"{hash}:{os.fspath(destination)}".encode()
+        
+        data = f"{hash}:{os.path.abspath(destination)}".encode()
         super().__init__(PacketType.DOWNLOAD_REQUEST, data)
 
     @property

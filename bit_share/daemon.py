@@ -199,7 +199,7 @@ class Daemon(DaemonBase):
         
         def handler(packet: Packet, addr: tuple[str, int]) -> None:
             if isinstance(packet, SeedPacket):
-                print(f"[LOCAL/SEED] hash={packet.seed.package.hash} | path={packet.seed.path}")
+                print(f"[LOCAL/SEED] hash={packet.seed.package.hash} | path={packet.seed.path.absolute()}")
                 self.seed_box.add(packet.seed)
         
 

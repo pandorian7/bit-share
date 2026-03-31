@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 from .package import Package
 
@@ -13,5 +14,5 @@ class Seed:
         return self._package
 
     @property
-    def path(self) -> str:
-        return self._path
+    def path(self):
+        return Path(self._path)
