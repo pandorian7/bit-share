@@ -13,9 +13,9 @@ from bit_share.peerbox import PeerBox
 
 
 from .constants import LOCAL_DAEMON_PORT, REMOTE_DAEMON_PORT, REMOTE_TRANSFER_PORT
-from .transfer import next_packet
+from .transfer import next_packet, send_packet
 from .seedbox import SeedBox
-from .packets import Packet
+from .packets import DownloadRequestPacket, EmptyPacket, PackageRequestPacket, PackageResponsePacket, Packet
 from .packets import *
 
 
@@ -117,7 +117,7 @@ class DaemonBase(ABC):
         self,
         host: str,
         port: int,
-        handler: Callable[[Packet, tuple[str, int]], None]
+        handler: Callable[[Packet, tuple[str, int]], Packet | None]
     ) -> None:
         """Generic TCP server that accepts connections and receives packets."""
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -138,7 +138,10 @@ class DaemonBase(ABC):
                 try:
                     # Use addr from accept(), not from next_packet (which returns None for TCP)
                     for packet, _ in next_packet(conn, self._stop_event):
-                        handler(packet, addr)
+                        res = handler(packet, addr)
+                        if not res:
+                            res = EmptyPacket()
+                        send_packet(conn, res, reply=True)
                 finally:
                     self._close_socket(conn)
         finally:
@@ -184,7 +187,10 @@ class Daemon(DaemonBase):
         print(f"Remote transfer server (TCP) listening on 0.0.0.0:{REMOTE_TRANSFER_PORT}")
         
         def handler(packet: Packet, addr: tuple[str, int]) -> None:
-            print(f"[remote-transfer/TCP] Received from {addr[0]}:{addr[1]} | type={packet.type.value} | size={len(packet.data)} bytes")
+            if (isinstance(packet, PackageRequestPacket)):
+                print(f"[TRANSFER/PREQ] hash={packet.hash} from={addr[0]}")
+                seed = self.seed_box.lookup(packet.hash)
+                return PackageResponsePacket.from_package(seed.package)
 
         self._run_tcp_server("", REMOTE_TRANSFER_PORT, handler)
 
@@ -195,5 +201,13 @@ class Daemon(DaemonBase):
             if isinstance(packet, SeedPacket):
                 print(f"[LOCAL/SEED] hash={packet.seed.package.hash} | path={packet.seed.path}")
                 self.seed_box.add(packet.seed)
+        
+
+            elif isinstance(packet, DownloadRequestPacket):
+                print(f"[LOCAL/DL] hash={packet.hash} | destination={packet.destination}")
+                API.discover_request(packet.hash)
+                peers = self.peer_box.await_peers(packet.hash)
+                package = API.request_package(packet.hash, next(iter(peers))) if peers else None
+                
 
         self._run_tcp_server("127.0.0.1", LOCAL_DAEMON_PORT, handler)

@@ -16,7 +16,16 @@ def resolve_packet_subclass(packet_type: PacketType) -> type["Packet"]:
         return DiscoveryRequestPacket
     if packet_type == PacketType.DISCOVERY_RESPONSE:
         return DiscoveryResponsePacket
+    if packet_type == PacketType.PACKAGE_REQUEST:
+        return PackageRequestPacket
+    if packet_type == PacketType.PACKAGE_RESPONSE:
+        return PackageResponsePacket
+    if packet_type == PacketType.DOWNLOAD_REQUEST:
+        return DownloadRequestPacket
+    if packet_type == PacketType.EMPTY:
+        return EmptyPacket
     return Packet
+
 
 
 class Packet:
@@ -31,7 +40,7 @@ class Packet:
     @property
     def type(self):
         return self._type
-    
+
     @property
     def data(self):
         return self._data
@@ -81,3 +90,49 @@ class DiscoveryResponsePacket(Packet):
     @property
     def hash(self) -> str:
         return self.data.decode()
+
+class PackageRequestPacket(Packet):
+    def __init__(self, data: bytes):
+        super().__init__(PacketType.PACKAGE_REQUEST, data)
+
+    @classmethod
+    def from_hash(cls, package_hash: str) -> "PackageRequestPacket":
+        return cls(package_hash.encode())
+    
+    @property
+    def hash(self) -> str:
+        return self.data.decode()
+
+class PackageResponsePacket(Packet):
+    def __init__(self, data: bytes):
+        super().__init__(PacketType.PACKAGE_RESPONSE, data)
+
+    @classmethod
+    def from_package(cls, package: Package) -> "PackageResponsePacket":
+        return cls(package.encode())
+    
+    @property
+    def package(self) -> Package:
+        payload = pickle.loads(self.data)
+        if not isinstance(payload, Package):
+            raise ValueError("Invalid package response packet payload")
+        return payload
+
+class DownloadRequestPacket(Packet):
+    def __init__(self, hash: str, destination: str | os.PathLike[str]):
+        data = f"{hash}:{os.fspath(destination)}".encode()
+        super().__init__(PacketType.DOWNLOAD_REQUEST, data)
+
+    @property
+    def hash(self) -> str:
+        return self.data.decode().split(":", 1)[0]
+    
+
+    @property
+    def destination(self) -> str:
+        return self.data.decode().split(":", 1)[1]
+
+
+class EmptyPacket(Packet):
+    def __init__(self):
+        super().__init__(PacketType.EMPTY, b"no_data")

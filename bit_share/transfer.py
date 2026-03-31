@@ -70,8 +70,9 @@ def _as_udp_destination(value: object) -> tuple[str, int]:
 def send_packet(
     sock: socket.socket,
     packet: Packet,
-    destination: Optional[tuple[str, int] | Iterable[tuple[str, int]]] = None
-) -> int:
+    destination: Optional[tuple[str, int] | Iterable[tuple[str, int]]] = None,
+    reply=False
+) -> tuple[Packet, tuple[str, int]] | None:
     
     """Send a framed packet through a socket. Destination required for UDP."""
     # Extract string value from packet type enum and ensure it's exactly 4 bytes
@@ -101,9 +102,10 @@ def send_packet(
                 total_sent += sock.sendto(frame, target)
             except OSError:
                 continue
-        return total_sent
     elif sock_type == socket.SOCK_STREAM:
-        return sock.send(frame)
+        sock.send(frame)
+        if not reply:
+            return recv_packet(sock)
     else:
         raise ValueError(f"Unsupported socket type: {sock_type}")
 

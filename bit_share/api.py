@@ -1,8 +1,11 @@
 import os
 import socket
 
-from .constants import LOCAL_DAEMON_PORT, REMOTE_DAEMON_PORT
+from .constants import LOCAL_DAEMON_PORT, REMOTE_DAEMON_PORT, REMOTE_TRANSFER_PORT
 from .packets import *
+from .packets import PackageRequestPacket
+from .packets import PackageResponsePacket
+from .packets import DownloadRequestPacket
 from .transfer import send_packet, broadcast_destinations
 from .package import Package
 from .seed import Seed
@@ -30,7 +33,22 @@ class API:
 		packet = DiscoveryResponsePacket.from_seed(seed)
 
 		with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-			return send_packet(sock, packet, addr)
+			return send_packet(sock, packet, addr, reply=True)
 
+	@staticmethod
+	def request_package(package_hash: str, ip: str):
+		packet = PackageRequestPacket.from_hash(package_hash)
+		with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+			sock.connect((ip, REMOTE_TRANSFER_PORT))
+			res, _ = send_packet(sock, packet)
+			
+			if isinstance(res, PackageResponsePacket):
+				return res.package
 
+	@staticmethod
+	def download_package(package_hash: str, destination: str | os.PathLike[str]) -> None:
+		packet = DownloadRequestPacket(package_hash, destination)
 
+		with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+			sock.connect(("127.0.0.1", LOCAL_DAEMON_PORT))
+			return send_packet(sock, packet)

@@ -48,6 +48,13 @@ def __process_args(parser: argparse.ArgumentParser, args: argparse.Namespace):
 
         print(f"Seeding package '{package.name}' with {len(package.filelist)} files...")
         API.seed(package, args.path)
+
+    if args.command == "download":
+        try:
+            package = API.download_package(args.hash, args.destination)
+            print(f"Package downloaded to '{args.destination}'")
+        except Exception as e:
+            print(f"Error downloading package: {e}")
 def main():
     parser = argparse.ArgumentParser(prog=NAME, description=DESCRIPTION)
     
@@ -64,7 +71,11 @@ def main():
     seed_parser = subparsers.add_parser('seed', help="seed a package to the network")
     seed_parser.add_argument('package', type=Path, help="path to the package file to seed")
     seed_parser.add_argument('path', type=Path, help="local path to seed for this package")
-    
+
+    download_parser = subparsers.add_parser('download', help="download a package from the network")
+    download_parser.add_argument('hash', type=str, help="hash of the package to download")
+    download_parser.add_argument('destination', type=Path, help="local path to save the downloaded package")
+
     args = parser.parse_args()
 
     try:
