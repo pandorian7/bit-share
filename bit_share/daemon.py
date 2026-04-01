@@ -227,6 +227,17 @@ class Daemon(DaemonBase):
             elif isinstance(packet, DownloadStatusRequestPacket):
                 status = self.downloader.get_job_snapshot(packet.job_id)
                 return DownloadStatusResponsePacket.from_status(status)
+
+            elif isinstance(packet, SharedListRequestPacket):
+                items: list[dict[str, object]] = []
+                for seed in self.seed_box.list():
+                    items.append({
+                        "name": seed.package.name,
+                        "hash": seed.package.hash,
+                        "files": len(seed.package.filelist),
+                        "path": str(seed.path.absolute()),
+                    })
+                return SharedListResponsePacket.from_items(items)
                
 
         self._run_tcp_server("127.0.0.1", LOCAL_DAEMON_PORT, handler)

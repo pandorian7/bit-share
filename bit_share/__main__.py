@@ -40,12 +40,46 @@ def __process_args(parser: argparse.ArgumentParser, args: argparse.Namespace):
         # assert isinstance(args.package, Path), "package argument must be a Path object"
         assert isinstance(args.path, Path), "path argument must be a Path object"
 
-        packager = Packager(source=args.path)
+        packager = Packager(source=args.path, name=args.name)
         package = packager.package()
 
         print(f"Sharing package with {len(package.filelist)} files...")
         print(f"Package hash: {package.hash}")
         API.seed(package, args.path.absolute())
+
+    if args.command == "shared":
+        try:
+            items = API.shared_list()
+            if not items:
+                print("No packages are currently being shared.")
+                return
+
+            headers = ["#", "Name", "Files", "Hash", "Path"]
+            rows = [
+                [
+                    str(index),
+                    str(item.get("name", "")),
+                    str(item.get("files", "")),
+                    str(item.get("hash", "")),
+                    str(item.get("path", "")),
+                ]
+                for index, item in enumerate(items, start=1)
+            ]
+
+            widths = [len(header) for header in headers]
+            for row in rows:
+                for i, cell in enumerate(row):
+                    widths[i] = max(widths[i], len(cell))
+
+            def _fmt(row: list[str]) -> str:
+                return " | ".join(cell.ljust(widths[i]) for i, cell in enumerate(row))
+
+            print(_fmt(headers))
+            print("-+-".join("-" * width for width in widths))
+            for row in rows:
+                print(_fmt(row))
+        except Exception as e:
+            print(f"Error reading shared packages: {e}")
 
     if args.command == "download":
         try:
@@ -108,6 +142,9 @@ def main():
 
     share_parser = subparsers.add_parser('share', help="share a package to the network")
     share_parser.add_argument('path', type=Path, help="local path to share for this package")
+    share_parser.add_argument('-n', '--name', type=str, default=None, help="override package name (defaults to file/folder name)")
+
+    subparsers.add_parser('shared', help="list packages currently shared by this computer")
 
     download_parser = subparsers.add_parser('download', help="download a package from the network")
     download_parser.add_argument('hash', type=str, help="hash of the package to download")

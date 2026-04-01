@@ -11,3 +11,6 @@ class SeedBox:
 
 	def lookup(self, package_hash: str) -> Seed | None:
 		return self._by_hash.get(package_hash)
+
+	def list(self) -> list[Seed]:
+		return list(self._by_hash.values())

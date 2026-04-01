@@ -18,6 +18,8 @@ __all__ = [
     "DownloadResponsePacket",
     "DownloadStatusRequestPacket",
     "DownloadStatusResponsePacket",
+    "SharedListRequestPacket",
+    "SharedListResponsePacket",
     "FileCheckPacket",
     "FileCheckResponsePacket",
     "FileRequestPacket",
@@ -45,6 +47,10 @@ def resolve_packet_subclass(packet_type: PacketType) -> type["Packet"]:
         return DownloadStatusRequestPacket
     if packet_type == PacketType.DOWNLOAD_STATUS_RESPONSE:
         return DownloadStatusResponsePacket
+    if packet_type == PacketType.SHARED_LIST_REQUEST:
+        return SharedListRequestPacket
+    if packet_type == PacketType.SHARED_LIST_RESPONSE:
+        return SharedListResponsePacket
     if packet_type == PacketType.FILE_CHECK_REQUEST:
         return FileCheckPacket
     if packet_type == PacketType.FILE_CHECK_RESPONSE:
@@ -204,6 +210,27 @@ class DownloadStatusResponsePacket(Packet):
         payload = pickle.loads(self.data)
         if not isinstance(payload, dict):
             raise ValueError("Invalid download status packet payload")
+        return payload
+
+
+class SharedListRequestPacket(Packet):
+    def __init__(self):
+        super().__init__(PacketType.SHARED_LIST_REQUEST, b"list")
+
+
+class SharedListResponsePacket(Packet):
+    def __init__(self, data: bytes):
+        super().__init__(PacketType.SHARED_LIST_RESPONSE, data)
+
+    @classmethod
+    def from_items(cls, items: list[dict[str, Any]]) -> "SharedListResponsePacket":
+        return cls(pickle.dumps(items))
+
+    @property
+    def items(self) -> list[dict[str, Any]]:
+        payload = pickle.loads(self.data)
+        if not isinstance(payload, list):
+            raise ValueError("Invalid shared list packet payload")
         return payload
 
 class FileCheckPacket(Packet):

@@ -79,6 +79,17 @@ class API:
 			raise RuntimeError("Daemon did not return a valid download status response")
 
 	@staticmethod
+	def shared_list() -> list[dict[str, typing.Any]]:
+		packet = SharedListRequestPacket()
+
+		with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+			sock.connect(("127.0.0.1", LOCAL_DAEMON_PORT))
+			res, _ = send_packet(sock, packet)
+			if isinstance(res, SharedListResponsePacket):
+				return res.items
+			raise RuntimeError("Daemon did not return a valid shared list response")
+
+	@staticmethod
 	def file_check(perr: "Peer", file_index: int) -> bool:
 		packet = FileCheckPacket(perr.package.hash, file_index)
 
