@@ -1,8 +1,9 @@
 import argparse
 from pathlib import Path
+import socket
 import time
 from . import NAME, VERSION, DESCRIPTION
-from .constants import PACKAGE_EXT
+from .constants import LOCAL_DAEMON_PORT, PACKAGE_EXT
 from .daemon import Daemon
 from .packager import Packager
 from .api import API
@@ -24,13 +25,30 @@ def _print_table(headers: list[str], rows: list[list[str]]) -> None:
     for row in rows:
         print(_fmt(row))
 
+
+def _is_local_daemon_running(timeout: float = 0.2) -> bool:
+    try:
+        with socket.create_connection(("127.0.0.1", LOCAL_DAEMON_PORT), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
 def __process_args(parser: argparse.ArgumentParser, args: argparse.Namespace):
     if args.daemon and args.command is not None:
         parser.error("--daemon cannot be combined with subcommands")
     
     if args.daemon:
+        if _is_local_daemon_running():
+            print("Daemon is already running.")
+            return
+
         daemon = Daemon()
         daemon.start()
+
+    requires_daemon = args.command in {"share", "shared", "download"}
+    if requires_daemon and not _is_local_daemon_running():
+        print("Daemon is not started. Run with --daemon first.")
+        return
 
     if args.command == "create":
 
@@ -60,7 +78,10 @@ def __process_args(parser: argparse.ArgumentParser, args: argparse.Namespace):
 
         print(f"Sharing package with {len(package.filelist)} files...")
         print(f"Package hash: {package.hash}")
-        API.seed(package, args.path.absolute())
+        try:
+            API.seed(package, args.path.absolute())
+        except OSError:
+            print("Daemon is not started. Run with --daemon first.")
 
     if args.command == "shared":
         try:
@@ -154,6 +175,8 @@ def __process_args(parser: argparse.ArgumentParser, args: argparse.Namespace):
                     break
 
                 time.sleep(0.5)
+        except OSError:
+            print("Daemon is not started. Run with --daemon first.")
         except Exception as e:
             print(f"Error downloading package: {e}")
 def main():
