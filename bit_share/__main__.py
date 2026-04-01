@@ -37,16 +37,14 @@ def __process_args(parser: argparse.ArgumentParser, args: argparse.Namespace):
         print(f"Package was written to '{output}'")
 
     if args.command == "share":
-        assert isinstance(args.package, Path), "package argument must be a Path object"
+        # assert isinstance(args.package, Path), "package argument must be a Path object"
         assert isinstance(args.path, Path), "path argument must be a Path object"
 
-        try: 
-            package = Package.from_file(args.package)
-        except FileNotFoundError:
-            print(f"Error: package file '{args.package}' not found")
-            return
+        packager = Packager(source=args.path)
+        package = packager.package()
 
-        print(f"Sharing package '{package.name}' with {len(package.filelist)} files...")
+        print(f"Sharing package with {len(package.filelist)} files...")
+        print(f"Package hash: {package.hash}")
         API.seed(package, args.path)
 
     if args.command == "download":
@@ -63,13 +61,12 @@ def main():
     
     subparsers = parser.add_subparsers(dest='command', title="available commands") # type: ignore
 
-    create_parser = subparsers.add_parser('create', help="create a bit-share package from a file or directory")
-    create_parser.add_argument('-s', '--source', type=str, help="path to the source file or directory (defaults to current directory)")
-    create_parser.add_argument('-n', '--name', type=str, help="name of the package (defaults to source name)")
-    create_parser.add_argument('-o', '--output', type=str, help="path to save the package file (defaults to <name>.json)")  
+    # create_parser = subparsers.add_parser('create', help="create a bit-share package from a file or directory")
+    # create_parser.add_argument('-s', '--source', type=str, help="path to the source file or directory (defaults to current directory)")
+    # create_parser.add_argument('-n', '--name', type=str, help="name of the package (defaults to source name)")
+    # create_parser.add_argument('-o', '--output', type=str, help="path to save the package file (defaults to <name>.json)")  
 
     share_parser = subparsers.add_parser('share', help="share a package to the network")
-    share_parser.add_argument('package', type=Path, help="path to the package file to share")
     share_parser.add_argument('path', type=Path, help="local path to share for this package")
 
     download_parser = subparsers.add_parser('download', help="download a package from the network")
