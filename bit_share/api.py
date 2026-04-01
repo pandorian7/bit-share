@@ -9,6 +9,7 @@ if typing.TYPE_CHECKING:
 
 import os
 import socket
+import time
 
 from .constants import LOCAL_DAEMON_PORT, REMOTE_DAEMON_PORT, REMOTE_TRANSFER_PORT
 from .packets import *
@@ -17,8 +18,9 @@ from .packets import PackageResponsePacket
 from .packets import DownloadRequestPacket
 from .packets import FileCheckPacket
 from .packets import FileCheckResponsePacket
-from .transfer import send_packet, broadcast_destinations
+from .transfer import send_packet, broadcast_destinations, recv_packet
 from .package import Package
+from .discovery import DiscoveryBox
 from .seed import Seed
 
 
@@ -45,6 +47,40 @@ class API:
 
 		with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
 			return send_packet(sock, packet, addr, reply=True)
+
+	@staticmethod
+	def discover_list_response(items: list[dict[str, typing.Any]], addr: tuple[str, int]) -> int:
+		packet = DiscoveryListResponsePacket.from_items(items)
+
+		with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+			return send_packet(sock, packet, addr, reply=True)
+
+	@staticmethod
+	def discover_shared(timeout: float = 3.0) -> list[dict[str, typing.Any]]:
+		packet = DiscoveryListRequestPacket()
+		box = DiscoveryBox()
+
+		with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+			sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+			sock.bind(("", 0))
+			send_packet(sock, packet, broadcast_destinations(REMOTE_DAEMON_PORT), reply=True)
+
+			deadline = time.monotonic() + max(0.0, timeout)
+			while True:
+				remaining = deadline - time.monotonic()
+				if remaining <= 0:
+					break
+
+				sock.settimeout(min(0.2, remaining))
+				try:
+					res, addr = recv_packet(sock)
+				except socket.timeout:
+					continue
+
+				if isinstance(res, DiscoveryListResponsePacket) and addr:
+					box.add(addr[0], res.items)
+
+		return box.items()
 
 	@staticmethod
 	def request_package(package_hash: str, ip: str):

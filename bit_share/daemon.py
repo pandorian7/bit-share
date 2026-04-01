@@ -176,6 +176,19 @@ class Daemon(DaemonBase):
 
                 resend_addr = (addr[0], REMOTE_DAEMON_PORT)
                 API.discover_response(seed, resend_addr)
+
+            elif isinstance(packet, DiscoveryListRequestPacket):
+                print(f"[REMOTE/L-REQ] from={addr[0]}")
+                items: list[dict[str, object]] = []
+                for seed in self.seed_box.list():
+                    items.append({
+                        "name": seed.package.name,
+                        "hash": seed.package.hash,
+                        "files": len(seed.package.filelist),
+                    })
+
+                resend_addr = (addr[0], addr[1])
+                API.discover_list_response(items, resend_addr)
             
             elif isinstance(packet, DiscoveryResponsePacket):
                 ip = addr[0]

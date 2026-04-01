@@ -12,6 +12,8 @@ __all__ = [
     "SeedPacket",
     "DiscoveryRequestPacket",
     "DiscoveryResponsePacket",
+    "DiscoveryListRequestPacket",
+    "DiscoveryListResponsePacket",
     "PackageRequestPacket",
     "PackageResponsePacket",
     "DownloadRequestPacket",
@@ -35,6 +37,10 @@ def resolve_packet_subclass(packet_type: PacketType) -> type["Packet"]:
         return DiscoveryRequestPacket
     if packet_type == PacketType.DISCOVERY_RESPONSE:
         return DiscoveryResponsePacket
+    if packet_type == PacketType.DISCOVERY_LIST_REQUEST:
+        return DiscoveryListRequestPacket
+    if packet_type == PacketType.DISCOVERY_LIST_RESPONSE:
+        return DiscoveryListResponsePacket
     if packet_type == PacketType.PACKAGE_REQUEST:
         return PackageRequestPacket
     if packet_type == PacketType.PACKAGE_RESPONSE:
@@ -127,6 +133,27 @@ class DiscoveryResponsePacket(Packet):
     @property
     def hash(self) -> str:
         return self.data.decode()
+
+
+class DiscoveryListRequestPacket(Packet):
+    def __init__(self):
+        super().__init__(PacketType.DISCOVERY_LIST_REQUEST, b"list")
+
+
+class DiscoveryListResponsePacket(Packet):
+    def __init__(self, data: bytes):
+        super().__init__(PacketType.DISCOVERY_LIST_RESPONSE, data)
+
+    @classmethod
+    def from_items(cls, items: list[dict[str, Any]]) -> "DiscoveryListResponsePacket":
+        return cls(pickle.dumps(items))
+
+    @property
+    def items(self) -> list[dict[str, Any]]:
+        payload = pickle.loads(self.data)
+        if not isinstance(payload, list):
+            raise ValueError("Invalid discovery list packet payload")
+        return payload
 
 class PackageRequestPacket(Packet):
     def __init__(self, data: bytes):

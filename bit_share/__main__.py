@@ -9,6 +9,21 @@ from .api import API
 
 import os
 
+
+def _print_table(headers: list[str], rows: list[list[str]]) -> None:
+    widths = [len(header) for header in headers]
+    for row in rows:
+        for i, cell in enumerate(row):
+            widths[i] = max(widths[i], len(cell))
+
+    def _fmt(row: list[str]) -> str:
+        return " | ".join(cell.ljust(widths[i]) for i, cell in enumerate(row))
+
+    print(_fmt(headers))
+    print("-+-".join("-" * width for width in widths))
+    for row in rows:
+        print(_fmt(row))
+
 def __process_args(parser: argparse.ArgumentParser, args: argparse.Namespace):
     if args.daemon and args.command is not None:
         parser.error("--daemon cannot be combined with subcommands")
@@ -66,20 +81,34 @@ def __process_args(parser: argparse.ArgumentParser, args: argparse.Namespace):
                 for index, item in enumerate(items, start=1)
             ]
 
-            widths = [len(header) for header in headers]
-            for row in rows:
-                for i, cell in enumerate(row):
-                    widths[i] = max(widths[i], len(cell))
-
-            def _fmt(row: list[str]) -> str:
-                return " | ".join(cell.ljust(widths[i]) for i, cell in enumerate(row))
-
-            print(_fmt(headers))
-            print("-+-".join("-" * width for width in widths))
-            for row in rows:
-                print(_fmt(row))
+            _print_table(headers, rows)
         except Exception as e:
             print(f"Error reading shared packages: {e}")
+
+    if args.command == "discover":
+        try:
+            print(f"Discovering shared packages on the network (waiting {args.wait:.1f}s)...")
+            items = API.discover_shared(timeout=args.wait)
+
+            if not items:
+                print("No shared packages discovered.")
+                return
+
+            headers = ["#", "Peer", "Name", "Files", "Hash"]
+            rows = [
+                [
+                    str(index),
+                    str(item.get("peer", "")),
+                    str(item.get("name", "")),
+                    str(item.get("files", "")),
+                    str(item.get("hash", "")),
+                ]
+                for index, item in enumerate(items, start=1)
+            ]
+
+            _print_table(headers, rows)
+        except Exception as e:
+            print(f"Error discovering shared packages: {e}")
 
     if args.command == "download":
         try:
@@ -145,6 +174,9 @@ def main():
     share_parser.add_argument('-n', '--name', type=str, default=None, help="override package name (defaults to file/folder name)")
 
     subparsers.add_parser('shared', help="list packages currently shared by this computer")
+
+    discover_parser = subparsers.add_parser('discover', help="discover packages shared by peers on the network")
+    discover_parser.add_argument('--wait', type=float, default=3.0, help="seconds to wait for peer replies (default: 3.0)")
 
     download_parser = subparsers.add_parser('download', help="download a package from the network")
     download_parser.add_argument('hash', type=str, help="hash of the package to download")
