@@ -199,7 +199,7 @@ class Daemon(DaemonBase):
                 print(f"[TRANSFER/FCHECK] hash={packet.package_hash} file_index={packet.file_index} from={addr[0]}")
                 seed = self.seed_box.lookup(packet.package_hash)
                 exists = seed.verify_file(packet.file_index)
-                print(packet.package_hash, packet.file_index, exists)
+                print(f"[TRANSFER/LOG] serving file {packet.file_index} of package {packet.package_hash} to {addr[0]}")
                 return FileCheckResponsePacket(exists)
             
             if (isinstance(packet, FileRequestPacket)):
