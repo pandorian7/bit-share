@@ -44,7 +44,7 @@ def __process_args(parser: argparse.ArgumentParser, args: argparse.Namespace):
 
         print(f"Sharing package with {len(package.filelist)} files...")
         print(f"Package hash: {package.hash}")
-        API.seed(package, args.path)
+        API.seed(package, args.path.absolute())
 
     if args.command == "download":
         try:
