@@ -1,6 +1,6 @@
 import enum
+from pathlib import Path
 import uuid
-from zipfile import Path
 
 from .repository import repository
 
@@ -22,9 +22,19 @@ class Job:
     def start(self):
         self.status = JobStatus.FETCHING_METADATA
         package = repository.find_package(self.hash)
-        print(package)
-
-
+        assert package is not None, "Package not found in repository"
+        peers = repository.find_peers(self.hash)
+        for i in range(len(package.filelist)):
+            file = package.filelist[i]
+            print(file)
+            for peer in peers:
+                if peer.check_file(i):
+                    print(f"Peer {peer.ip} has file {i} of package {package.name}")
+                    data = peer.request_file(i)
+                    print("data", data)
+                    break
+                else:
+                    print(f"Peer {peer.ip} does not have file {i} of package {package.name}")
 class Downloader:
     jobs: dict[str, Job]
 

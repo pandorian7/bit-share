@@ -1,3 +1,12 @@
+from builtins import staticmethod
+import typing
+
+from .packets import FileRequestPacket, FileResponsePacket
+
+if typing.TYPE_CHECKING:
+	from bit_share.peer import Peer
+
+
 import os
 import socket
 
@@ -6,6 +15,8 @@ from .packets import *
 from .packets import PackageRequestPacket
 from .packets import PackageResponsePacket
 from .packets import DownloadRequestPacket
+from .packets import FileCheckPacket
+from .packets import FileCheckResponsePacket
 from .transfer import send_packet, broadcast_destinations
 from .package import Package
 from .seed import Seed
@@ -52,3 +63,25 @@ class API:
 		with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
 			sock.connect(("127.0.0.1", LOCAL_DAEMON_PORT))
 			return send_packet(sock, packet)
+
+	@staticmethod
+	def file_check(perr: "Peer", file_index: int) -> bool:
+		packet = FileCheckPacket(perr.package.hash, file_index)
+
+		with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+			sock.connect((perr.ip, REMOTE_TRANSFER_PORT))
+			res, _ = send_packet(sock, packet)
+
+			if isinstance(res, FileCheckResponsePacket):
+				return res.exists
+	
+	@staticmethod
+	def request_file(perr: "Peer", file_index: int) -> bytes:
+		packet = FileRequestPacket(perr.package.hash, file_index)
+
+		with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+			sock.connect((perr.ip, REMOTE_TRANSFER_PORT))
+			res, _ = send_packet(sock, packet)
+
+			if isinstance(res, FileResponsePacket):
+				return res.content

@@ -23,6 +23,14 @@ def resolve_packet_subclass(packet_type: PacketType) -> type["Packet"]:
         return PackageResponsePacket
     if packet_type == PacketType.DOWNLOAD_REQUEST:
         return DownloadRequestPacket
+    if packet_type == PacketType.FILE_CHECK_REQUEST:
+        return FileCheckPacket
+    if packet_type == PacketType.FILE_CHECK_RESPONSE:
+        return FileCheckResponsePacket
+    if packet_type == PacketType.FILE_REQUEST:
+        return FileRequestPacket
+    if packet_type == PacketType.FILE_RESPONSE:
+        return FileResponsePacket
     if packet_type == PacketType.EMPTY:
         return EmptyPacket
     return Packet
@@ -134,7 +142,59 @@ class DownloadRequestPacket(Packet):
     def destination(self) -> Path:
         return Path(self.data.decode().split(":", 1)[1]).absolute()
 
+class FileCheckPacket(Packet):
+    def __init__(self, package_hash: str, file_index: int):
+        data = f"{package_hash}:{file_index}".encode()
+        super().__init__(PacketType.FILE_CHECK_REQUEST, data)
+
+    @property
+    def package_hash(self) -> str:
+        return self.data.decode().split(":", 1)[0]
+
+    @property
+    def file_index(self) -> int:
+        return int(self.data.decode().split(":", 1)[1])
+    
+class FileCheckResponsePacket(Packet):
+    def __init__(self, exists: bool):
+        data = b"1" if exists else b"0"
+        super().__init__(PacketType.FILE_CHECK_RESPONSE, data)
+
+    @property
+    def exists(self) -> bool:
+        return self.data == b"1"   
+
+class FileRequestPacket(Packet):
+    def __init__(self, package_hash: str, file_index: int):
+        data = f"{package_hash}:{file_index}".encode()
+        super().__init__(PacketType.FILE_REQUEST, data)
+
+    @property
+    def package_hash(self) -> str:
+        return self.data.decode().split(":", 1)[0]
+
+    @property
+    def file_index(self) -> int:
+        return int(self.data.decode().split(":", 1)[1])
+    
+class FileResponsePacket(Packet):
+    def __init__(self, package_hash: str, file_index: int, content: bytes):
+        data = f"{package_hash}:{file_index}:".encode() + content
+        super().__init__(PacketType.FILE_RESPONSE, data)
+
+    @property
+    def package_hash(self) -> str:
+        return self.data.decode().split(":", 2)[0]
+
+    @property
+    def file_index(self) -> int:
+        return int(self.data.decode().split(":", 2)[1])
+    
+    @property
+    def content(self) -> bytes:
+        return self.data.split(b":", 2)[2]
 
 class EmptyPacket(Packet):
     def __init__(self):
         super().__init__(PacketType.EMPTY, b"no_data")
+    

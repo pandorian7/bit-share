@@ -1,4 +1,4 @@
-from __future__ import annotations
+from builtins import isinstance
 
 import signal
 import socket
@@ -17,7 +17,7 @@ from bit_share.api import API
 from .constants import LOCAL_DAEMON_PORT, REMOTE_DAEMON_PORT, REMOTE_TRANSFER_PORT
 from .transfer import next_packet, send_packet
 from .seedbox import SeedBox
-from .packets import DownloadRequestPacket, EmptyPacket, PackageRequestPacket, PackageResponsePacket, Packet
+from .packets import DownloadRequestPacket, EmptyPacket, FileCheckPacket, FileCheckResponsePacket, FileRequestPacket, FileResponsePacket, PackageRequestPacket, PackageResponsePacket, Packet
 from .packets import *
 
 
@@ -194,6 +194,19 @@ class Daemon(DaemonBase):
                 print(f"[TRANSFER/PREQ] hash={packet.hash} from={addr[0]}")
                 seed = self.seed_box.lookup(packet.hash)
                 return PackageResponsePacket.from_package(seed.package)
+
+            if (isinstance(packet, FileCheckPacket)):
+                print(f"[TRANSFER/FCHECK] hash={packet.package_hash} file_index={packet.file_index} from={addr[0]}")
+                seed = self.seed_box.lookup(packet.package_hash)
+                exists = seed.verify_file(packet.file_index)
+                print(packet.package_hash, packet.file_index, exists)
+                return FileCheckResponsePacket(exists)
+            
+            if (isinstance(packet, FileRequestPacket)):
+                print(f"[TRANSFER/FREQ] hash={packet.package_hash} file_index={packet.file_index} from={addr[0]}")
+                seed = self.seed_box.lookup(packet.package_hash)
+                file_data = seed.read_file(packet.file_index)
+                return FileResponsePacket(packet.package_hash, packet.file_index, file_data)
 
         self._run_tcp_server("", REMOTE_TRANSFER_PORT, handler)
 
