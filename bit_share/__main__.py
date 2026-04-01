@@ -4,7 +4,6 @@ from . import NAME, VERSION, DESCRIPTION
 from .constants import PACKAGE_EXT
 from .daemon import Daemon
 from .packager import Packager
-from .package import Package
 from .api import API
 
 import os
@@ -50,7 +49,7 @@ def __process_args(parser: argparse.ArgumentParser, args: argparse.Namespace):
     if args.command == "download":
         try:
             package = API.download_package(args.hash, args.destination)
-            print(f"Package downloaded to '{args.destination}'")
+            print(f"Package downloaded to '{args.destination.absolute()}'")
         except Exception as e:
             print(f"Error downloading package: {e}")
 def main():
