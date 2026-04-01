@@ -1,3 +1,4 @@
+```
 usage: bit-share [-h] [-D] [-v] {share,shared,discover,download} ...
 
 Simple Torrent Like service to share files in the local network
@@ -13,3 +14,4 @@ available commands:
     shared              list packages currently shared by this computer
     discover            discover packages shared by peers on the network
     download            download a package from the network
+```
