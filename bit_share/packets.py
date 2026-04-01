@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import pickle
 from typing import Any, cast
 
@@ -130,8 +131,8 @@ class DownloadRequestPacket(Packet):
     
 
     @property
-    def destination(self) -> str:
-        return self.data.decode().split(":", 1)[1]
+    def destination(self) -> Path:
+        return Path(self.data.decode().split(":", 1)[1]).absolute()
 
 
 class EmptyPacket(Packet):

@@ -36,7 +36,7 @@ def __process_args(parser: argparse.ArgumentParser, args: argparse.Namespace):
 
         print(f"Package was written to '{output}'")
 
-    if args.command == "seed":
+    if args.command == "share":
         assert isinstance(args.package, Path), "package argument must be a Path object"
         assert isinstance(args.path, Path), "path argument must be a Path object"
 
@@ -46,7 +46,7 @@ def __process_args(parser: argparse.ArgumentParser, args: argparse.Namespace):
             print(f"Error: package file '{args.package}' not found")
             return
 
-        print(f"Seeding package '{package.name}' with {len(package.filelist)} files...")
+        print(f"Sharing package '{package.name}' with {len(package.filelist)} files...")
         API.seed(package, args.path)
 
     if args.command == "download":
@@ -68,9 +68,9 @@ def main():
     create_parser.add_argument('-n', '--name', type=str, help="name of the package (defaults to source name)")
     create_parser.add_argument('-o', '--output', type=str, help="path to save the package file (defaults to <name>.json)")  
 
-    seed_parser = subparsers.add_parser('seed', help="seed a package to the network")
-    seed_parser.add_argument('package', type=Path, help="path to the package file to seed")
-    seed_parser.add_argument('path', type=Path, help="local path to seed for this package")
+    share_parser = subparsers.add_parser('share', help="share a package to the network")
+    share_parser.add_argument('package', type=Path, help="path to the package file to share")
+    share_parser.add_argument('path', type=Path, help="local path to share for this package")
 
     download_parser = subparsers.add_parser('download', help="download a package from the network")
     download_parser.add_argument('hash', type=str, help="hash of the package to download")

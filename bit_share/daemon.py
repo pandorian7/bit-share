@@ -8,8 +8,10 @@ from types import FrameType
 from typing import Callable
 import psutil
 
+from .downloader import Downloader
+
+from .repository import repository
 from bit_share.api import API
-from bit_share.peerbox import PeerBox
 
 
 from .constants import LOCAL_DAEMON_PORT, REMOTE_DAEMON_PORT, REMOTE_TRANSFER_PORT
@@ -40,7 +42,7 @@ class DaemonBase(ABC):
     def __init__(self):
         self._stop_event = threading.Event()
         self.seed_box = SeedBox()
-        self.peer_box = PeerBox()
+        self.downloader = Downloader()
 
     @abstractmethod
     def _remote_daemon_server(self) -> None:
@@ -176,8 +178,9 @@ class Daemon(DaemonBase):
                 API.discover_response(seed, resend_addr)
             
             elif isinstance(packet, DiscoveryResponsePacket):
-                print(f"[REMOTE/D-RES] hash={packet.hash} from={addr[0]}")
-                self.peer_box.add(packet.hash, addr[0])
+                ip = addr[0]
+                print(f"[REMOTE/D-RES] hash={packet.hash} from={ip}")
+                repository.add_peer(packet.hash, ip)
 
 
 
@@ -205,9 +208,7 @@ class Daemon(DaemonBase):
 
             elif isinstance(packet, DownloadRequestPacket):
                 print(f"[LOCAL/DL] hash={packet.hash} | destination={packet.destination}")
-                API.discover_request(packet.hash)
-                peers = self.peer_box.await_peers(packet.hash)
-                package = API.request_package(packet.hash, next(iter(peers))) if peers else None
-                
+                self.downloader.add_job(packet.hash, packet.destination).start()
+               
 
         self._run_tcp_server("127.0.0.1", LOCAL_DAEMON_PORT, handler)
