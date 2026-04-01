@@ -57,12 +57,26 @@ class API:
 				return res.package
 
 	@staticmethod
-	def download_package(package_hash: str, destination: str | os.PathLike[str]) -> None:
+	def download_package(package_hash: str, destination: str | os.PathLike[str]) -> str:
 		packet = DownloadRequestPacket(package_hash, destination)
 
 		with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
 			sock.connect(("127.0.0.1", LOCAL_DAEMON_PORT))
-			return send_packet(sock, packet)
+			res, _ = send_packet(sock, packet)
+			if isinstance(res, DownloadResponsePacket):
+				return res.job_id
+			raise RuntimeError("Daemon did not return a valid download job response")
+
+	@staticmethod
+	def download_status(job_id: str) -> dict[str, typing.Any]:
+		packet = DownloadStatusRequestPacket.from_job_id(job_id)
+
+		with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+			sock.connect(("127.0.0.1", LOCAL_DAEMON_PORT))
+			res, _ = send_packet(sock, packet)
+			if isinstance(res, DownloadStatusResponsePacket):
+				return res.status
+			raise RuntimeError("Daemon did not return a valid download status response")
 
 	@staticmethod
 	def file_check(perr: "Peer", file_index: int) -> bool:

@@ -7,7 +7,23 @@ from .types import PacketType
 from .package import Package
 from .seed import Seed
 
-__all__ = ["SeedPacket", "DiscoveryRequestPacket", "DiscoveryResponsePacket"]
+__all__ = [
+    "Packet",
+    "SeedPacket",
+    "DiscoveryRequestPacket",
+    "DiscoveryResponsePacket",
+    "PackageRequestPacket",
+    "PackageResponsePacket",
+    "DownloadRequestPacket",
+    "DownloadResponsePacket",
+    "DownloadStatusRequestPacket",
+    "DownloadStatusResponsePacket",
+    "FileCheckPacket",
+    "FileCheckResponsePacket",
+    "FileRequestPacket",
+    "FileResponsePacket",
+    "EmptyPacket",
+]
 
 
 def resolve_packet_subclass(packet_type: PacketType) -> type["Packet"]:
@@ -23,6 +39,12 @@ def resolve_packet_subclass(packet_type: PacketType) -> type["Packet"]:
         return PackageResponsePacket
     if packet_type == PacketType.DOWNLOAD_REQUEST:
         return DownloadRequestPacket
+    if packet_type == PacketType.DOWNLOAD_RESPONSE:
+        return DownloadResponsePacket
+    if packet_type == PacketType.DOWNLOAD_STATUS_REQUEST:
+        return DownloadStatusRequestPacket
+    if packet_type == PacketType.DOWNLOAD_STATUS_RESPONSE:
+        return DownloadStatusResponsePacket
     if packet_type == PacketType.FILE_CHECK_REQUEST:
         return FileCheckPacket
     if packet_type == PacketType.FILE_CHECK_RESPONSE:
@@ -141,6 +163,48 @@ class DownloadRequestPacket(Packet):
     @property
     def destination(self) -> Path:
         return Path(self.data.decode().split(":", 1)[1]).absolute()
+
+
+class DownloadResponsePacket(Packet):
+    def __init__(self, data: bytes):
+        super().__init__(PacketType.DOWNLOAD_RESPONSE, data)
+
+    @classmethod
+    def from_job_id(cls, job_id: str) -> "DownloadResponsePacket":
+        return cls(job_id.encode())
+
+    @property
+    def job_id(self) -> str:
+        return self.data.decode()
+
+
+class DownloadStatusRequestPacket(Packet):
+    def __init__(self, data: bytes):
+        super().__init__(PacketType.DOWNLOAD_STATUS_REQUEST, data)
+
+    @classmethod
+    def from_job_id(cls, job_id: str) -> "DownloadStatusRequestPacket":
+        return cls(job_id.encode())
+
+    @property
+    def job_id(self) -> str:
+        return self.data.decode()
+
+
+class DownloadStatusResponsePacket(Packet):
+    def __init__(self, data: bytes):
+        super().__init__(PacketType.DOWNLOAD_STATUS_RESPONSE, data)
+
+    @classmethod
+    def from_status(cls, status: dict[str, Any]) -> "DownloadStatusResponsePacket":
+        return cls(pickle.dumps(status))
+
+    @property
+    def status(self) -> dict[str, Any]:
+        payload = pickle.loads(self.data)
+        if not isinstance(payload, dict):
+            raise ValueError("Invalid download status packet payload")
+        return payload
 
 class FileCheckPacket(Packet):
     def __init__(self, package_hash: str, file_index: int):

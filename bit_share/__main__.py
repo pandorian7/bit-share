@@ -1,5 +1,6 @@
 import argparse
 from pathlib import Path
+import time
 from . import NAME, VERSION, DESCRIPTION
 from .constants import PACKAGE_EXT
 from .daemon import Daemon
@@ -48,8 +49,48 @@ def __process_args(parser: argparse.ArgumentParser, args: argparse.Namespace):
 
     if args.command == "download":
         try:
-            package = API.download_package(args.hash, args.destination)
-            print(f"Package downloaded to '{args.destination.absolute()}'")
+            job_id = API.download_package(args.hash, args.destination)
+            print(f"Download job started: {job_id}")
+
+            last_progress: tuple[object, ...] | None = None
+            last_render_len = 0
+            while True:
+                status = API.download_status(job_id)
+                completed_files = status.get("completed_files", 0)
+                total_files = status.get("total_files", 0)
+                current_file = status.get("current_file") or "waiting..."
+                status_name = status.get("status", "UNKNOWN")
+                skipped_files = status.get("skipped_files", [])
+                error = status.get("error")
+
+                progress_key = (
+                    completed_files,
+                    total_files,
+                    current_file,
+                    status_name,
+                    len(skipped_files) if isinstance(skipped_files, list) else 0,
+                    error,
+                )
+                if progress_key != last_progress:
+                    progress_line = f"({completed_files}/{total_files}) {current_file} [{status_name}]"
+                    extra_padding = " " * max(0, last_render_len - len(progress_line))
+                    print(f"\r{progress_line}{extra_padding}", end="", flush=True)
+                    last_render_len = len(progress_line)
+                    last_progress = progress_key
+
+                if status.get("done"):
+                    print()
+                    if status_name == "FAILED":
+                        print(f"Download failed: {error}")
+                    else:
+                        print(f"Download finished to '{args.destination.absolute()}'")
+                        if isinstance(skipped_files, list) and skipped_files:
+                            print("Skipped files:")
+                            for skipped in skipped_files:
+                                print(f"- {skipped}")
+                    break
+
+                time.sleep(0.5)
         except Exception as e:
             print(f"Error downloading package: {e}")
 def main():

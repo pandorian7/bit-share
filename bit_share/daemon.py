@@ -221,7 +221,12 @@ class Daemon(DaemonBase):
 
             elif isinstance(packet, DownloadRequestPacket):
                 print(f"[LOCAL/DL] hash={packet.hash} | destination={packet.destination}")
-                self.downloader.add_job(packet.hash, packet.destination).start()
+                job_id = self.downloader.add_job(packet.hash, packet.destination)
+                return DownloadResponsePacket.from_job_id(job_id)
+
+            elif isinstance(packet, DownloadStatusRequestPacket):
+                status = self.downloader.get_job_snapshot(packet.job_id)
+                return DownloadStatusResponsePacket.from_status(status)
                
 
         self._run_tcp_server("127.0.0.1", LOCAL_DAEMON_PORT, handler)
